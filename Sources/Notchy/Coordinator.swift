@@ -241,7 +241,8 @@ final class Coordinator {
             if json["drop_side"] != nil, let m = notch?.model {   // stand-in for a drag over the notch
                 let side = json.str("drop_side")
                 m.dropSide = side == "convert" ? .convert : .shelf
-                withAnimation(NotchMotion.spring) { m.dropTargeted = side == "shelf" || side == "convert" }
+                m.dropCanConvert = side != "shelf_only"   // a drag with no images: the shelf alone
+                withAnimation(NotchMotion.spring) { m.dropTargeted = ["shelf", "convert", "shelf_only"].contains(side) }
             }
             if json["radar_view"] != nil { notch?.model.radar.showClaude = json.str("radar_view") == "claude" }
             if json["radar_clear"] != nil, let r = notch?.model.radar {

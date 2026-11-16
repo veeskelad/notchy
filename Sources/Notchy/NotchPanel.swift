@@ -74,6 +74,8 @@ final class NotchModel: ObservableObject {
     let notes = NotesStore()
     @Published var dropTargeted = false
     @Published var dropSide: DropSide = .shelf
+    /// The drag carries at least one image: the converter half is shown next to the shelf.
+    @Published var dropCanConvert = true
     /// A timer runs (Tools.swift): the resting notch shows its countdown.
     @Published var timerRunning = false
     let timer = TimerStore()
@@ -133,6 +135,10 @@ final class NotchController {
     static let bannerSeconds: Double = 6
     /// Room for the largest card; the window keeps this size for good.
     static let islandRoom = CGSize(width: 640, height: 540)
+    /// The window reaches this far above the top of the screen and the content starts that much lower.
+    /// Without it the pointer pushed against the top edge sits on the window's own border, and a file
+    /// dragged up there flickers out of the drop zones (the drag "exits" at y = 0 and comes back at y = 1).
+    static let overhang: CGFloat = 1
 
     private let panel: NotchPanel
     private let hosting: FirstMouseHostingView<NotchRootView>
@@ -494,8 +500,9 @@ final class NotchController {
             model.notchHeight = NSStatusBar.system.thickness
         }
         let size = NotchController.islandRoom
-        let height = model.notchHeight + size.height
-        var frame = NSRect(x: (screen.frame.midX - size.width / 2).rounded(), y: screen.frame.maxY - height,
+        let height = model.notchHeight + size.height + NotchController.overhang
+        var frame = NSRect(x: (screen.frame.midX - size.width / 2).rounded(),
+                           y: screen.frame.maxY + NotchController.overhang - height,
                            width: size.width, height: height)
         // Test instances taking screenshots: render off screen, out of the user's way.
         if Visibility.forceOffscreen && ProcessInfo.processInfo.environment["NOTCHY_HIDDEN_WINDOW"] == "1" {
@@ -524,6 +531,7 @@ struct NotchRootView: View {
             NotchRimView(model: model)
                 .onHover { model.onHover(.notch, $0) }
         }
+        .padding(.top, NotchController.overhang)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onDrop(of: [UTType.fileURL], delegate: NotchDropDelegate(model: model, midX: NotchController.islandRoom.width / 2))
         .environment(\.colorScheme, .dark)
@@ -629,7 +637,7 @@ struct IslandView: View {
                         .transition(islandContent)
                 }
             case .drop:
-                DropZones(side: model.dropSide, notchWidth: notch, notchHeight: model.notchHeight)
+                DropZones(side: model.dropSide, canConvert: model.dropCanConvert, notchWidth: notch, notchHeight: model.notchHeight)
                     .transition(islandContent)
             case .timer:
                 TimerCompact(timer: model.timer, notchWidth: notch, notchHeight: model.notchHeight)
