@@ -82,6 +82,7 @@ struct Config {
     var clipboardHistory = true // the Clipboard tab remembers copied text (in memory only)
     var claudeUpdates = true    // Radar: what's new in Claude Code, from its public changelog
     var radarCommand = ""       // Radar: a command printing your scouts' findings as JSON (Radar.swift)
+    var radarActions: [String: String] = [:]   // Radar: commands a finding's button may start, by id (Radar.swift)
 
     static func load() -> Config {
         var config = Config()
@@ -113,6 +114,9 @@ struct Config {
         if let b = json["clipboard_history"] as? Bool { config.clipboardHistory = b }
         if let b = json["claude_updates"] as? Bool { config.claudeUpdates = b }
         if let s = json["radar_command"] as? String { config.radarCommand = s }
+        if let d = json["radar_actions"] as? [String: Any] {
+            for (k, v) in d { if let s = v as? String, !s.isEmpty { config.radarActions[k] = s } }
+        }
         return config
     }
 

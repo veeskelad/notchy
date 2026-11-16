@@ -7,6 +7,9 @@ import SwiftUI
 //                 against the installed `claude --version`; fetched every 6 h and when the tab opens
 //   findings      cards from your own scouts: `radar_command` in the config is run every 30 min and prints
 //                 {"items": [{"id", "source", "title", "text", "action", "url", "report", "date", "kind"}]}
+//   actions       a finding may name an action ("run": "<id>", "run_label"); the button appears only when
+//                 `radar_actions` in the config maps that id to a command. The feed names the id, never the
+//                 command: findings carry text from outside sources, the command stays in your config.
 //
 // A dot on the tab marks entries not seen yet. Nothing personal leaves the Mac: the changelog is a public
 // file, the findings command is yours and runs locally.
@@ -22,6 +25,8 @@ struct RadarItem: Identifiable, Equatable {
     let date: String
     let kind: String        // "propose" (your decision), "hold", "probe", "finding"
     let prompt: String      // the task for an agent; empty: built from the fields above
+    var run = ""            // id of an action in `radar_actions`; the card shows a button to start it
+    var runLabel = ""       // the button's title; empty: "Run"
 }
 
 struct ClaudeRelease: Identifiable, Equatable {
@@ -41,6 +46,7 @@ final class RadarStore: ObservableObject {
     @Published private(set) var dismissed: Set<String> = Set(RadarStore.load(RadarStore.dismissedFile))
 
     private let command: String
+    private let actions: [String: String]
     private let claudeUpdates: Bool
     private let claudePath: String
     /// Russian for the changelog lines when the app speaks Russian (RadarTranslate.swift).
@@ -54,8 +60,9 @@ final class RadarStore: ObservableObject {
     static let changelogURL = URL(string: "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md")!
     static let changelogPage = URL(string: "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md")!
 
-    init(command: String, claudeUpdates: Bool, claudePath: String) {
+    init(command: String, claudeUpdates: Bool, claudePath: String, actions: [String: String] = [:]) {
         self.command = command
+        self.actions = actions
         self.claudeUpdates = claudeUpdates
         self.claudePath = claudePath
         self.translator = ReleaseTranslator(enabled: claudeUpdates && L.russian)
@@ -173,6 +180,30 @@ final class RadarStore: ObservableObject {
         if n != unseen { unseen = n }
     }
 
+    // MARK: Actions
+
+    /// The card's button exists only for an id the user mapped to a command in the config.
+    func canRun(_ item: RadarItem) -> Bool { !item.run.isEmpty && actions[item.run] != nil }
+
+    /// Starts the action's command detached through the login shell (`&!`: it outlives the shell and the app)
+    /// and reads the feed again shortly, so the card can show the command's progress.
+    func run(_ item: RadarItem) {
+        guard let command = actions[item.run] else { return }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        p.arguments = ["-lc", "( \(command) ) >/dev/null 2>&1 </dev/null &!"]
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        do {
+            try p.run()
+            log("[radar] action \(item.run) started for \(item.id)")
+        } catch {
+            self.error = L.t("Action failed to start", "Действие не запустилось") + ": " + error.localizedDescription
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.refresh() }
+    }
+
     // MARK: Findings
 
     private func runFeed() {
@@ -218,7 +249,8 @@ final class RadarStore: ObservableObject {
             guard !title.isEmpty else { return nil }
             return RadarItem(id: d.str("id").isEmpty ? title : d.str("id"), source: d.str("source"), title: title,
                              text: d.str("text"), action: d.str("action"), url: d.str("url"), report: d.str("report"),
-                             date: d.str("date"), kind: d.str("kind"), prompt: d.str("prompt"))
+                             date: d.str("date"), kind: d.str("kind"), prompt: d.str("prompt"),
+                             run: d.str("run"), runLabel: d.str("run_label"))
         }
     }
 
@@ -361,6 +393,7 @@ struct RadarTab: View {
         }
         ForEach(radar.visibleItems) { item in
             FindingCard(item: item, prompt: { radar.agentPrompt(item) },
+                        onRun: radar.canRun(item) ? { radar.run(item) } : nil,
                         onDismiss: { withAnimation(.easeOut(duration: 0.2)) { radar.dismiss(item) } })
         }
     }
@@ -417,7 +450,9 @@ struct DismissButton: View {
 struct FindingCard: View {
     let item: RadarItem
     let prompt: () -> String
+    var onRun: (() -> Void)? = nil
     let onDismiss: () -> Void
+    @State private var started = false
 
     private var badge: (String, Color)? {
         switch item.kind {
@@ -448,6 +483,16 @@ struct FindingCard: View {
                     .font(.system(size: 12)).foregroundColor(claudeOrange.opacity(0.9)).lineLimit(2)
             }
             HStack(spacing: 6) {
+                if let onRun = onRun {
+                    Button(started ? L.t("Started", "Запущено") : (item.runLabel.isEmpty ? L.t("Run", "Запустить") : item.runLabel)) {
+                        guard !started else { return }
+                        started = true
+                        onRun()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { started = false }
+                    }
+                    .buttonStyle(NotchButtonStyle(role: .primary))
+                    .disabled(started)
+                }
                 AgentTaskButton(prompt: prompt)
                 if let url = URL(string: item.url), !item.url.isEmpty {
                     Button(L.t("Source", "Источник")) { NSWorkspace.shared.open(url) }.buttonStyle(NotchButtonStyle(role: .secondary))

@@ -149,6 +149,7 @@ Most switches are in Settings (the gear in the panel). The rest lives in `~/.con
   "codex_limits": true,
   "claude_updates": true,
   "radar_command": "",
+  "radar_actions": {},
   "open_at_login": true,
   "sounds": { "question": "Glass", "plan_ready": "Glass", "tool_permission": "Funk", "idle": "Pop", "attention": "Funk", "error": "Basso" },
   "events": { "question": true, "plan_ready": true, "tool_permission": true, "idle": true, "attention": true, "error": true },
@@ -171,6 +172,7 @@ Most switches are in Settings (the gear in the panel). The rest lives in `~/.con
 | `codex_limits` | `false` → no Codex usage; the hairline is all Claude |
 | `claude_updates` | `false` → the Radar leaves out Claude Code releases (no request to GitHub) |
 | `radar_command` | A shell command for the Radar's findings, run every 30 minutes (format below) |
+| `radar_actions` | Commands a finding's button may start, by id: `{"update-tool": "~/bin/update-tool.sh"}` |
 | `claude_compact` | `true` → the resting notch widens while Claude works; off by default |
 | `open_at_login` | Login item |
 | `events.*` | `question`, `plan_ready`, `tool_permission`; `idle` ("Done" after a long turn); `attention` (Claude waits on an MCP form or a sandbox request); `error` (a turn failed) |
@@ -198,6 +200,8 @@ Keys not in Settings take effect after a restart: `osascript -e 'quit app "Notch
 ```
 
 `kind` picks the badge: `propose` (needs your decision), `probe` (being tried), `hold` (waiting on a condition). `action` is shown as what is needed from you; `prompt` is what *Task for an agent* copies (without it the task is built from the card).
+
+A finding may also carry `"run": "<id>"` and `"run_label": "Update"`. When `radar_actions` maps that id to a command, the card gets a button that starts it in the background through your login shell; the feed only names the id, so text from outside sources never becomes a command. The command reports its progress by changing what the feed prints.
 
 ## Privacy
 

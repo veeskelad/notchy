@@ -149,6 +149,7 @@ fi
   "codex_limits": true,
   "claude_updates": true,
   "radar_command": "",
+  "radar_actions": {},
   "open_at_login": true,
   "sounds": { "question": "Glass", "plan_ready": "Glass", "tool_permission": "Funk", "idle": "Pop", "attention": "Funk", "error": "Basso" },
   "events": { "question": true, "plan_ready": true, "tool_permission": true, "idle": true, "attention": true, "error": true },
@@ -171,6 +172,7 @@ fi
 | `codex_limits` | `false` — без лимитов Codex, линия целиком для Claude |
 | `claude_updates` | `false` — «Радар» без версий Claude Code (и без запроса к GitHub) |
 | `radar_command` | Команда для находок «Радара», запускается раз в 30 минут (формат ниже) |
+| `radar_actions` | Команды, которые может запустить кнопка находки, по id: `{"update-tool": "~/bin/update-tool.sh"}` |
 | `claude_compact` | `true` — чёлка в покое расширяется, пока Claude работает; по умолчанию выключено |
 | `open_at_login` | Объект входа |
 | `events.*` | `question`, `plan_ready`, `tool_permission`; `idle` («Готово» после долгого хода); `attention` (Claude ждёт форму MCP или запрос песочницы); `error` (ход упал) |
@@ -198,6 +200,8 @@ fi
 ```
 
 `kind` выбирает пометку: `propose` — нужно ваше решение, `probe` — идёт проба, `hold` — ждёт условия. `action` показывается как «От тебя», `prompt` — то, что копирует «Задача агенту» (без него задача собирается из карточки).
+
+Ещё находка может нести `"run": "<id>"` и `"run_label": "Обновить"`. Если в `radar_actions` этому id задана команда, на карточке появляется кнопка: она запускает команду в фоне через ваш login shell. Лента называет только id, поэтому текст из внешних источников командой не станет. Ход работы команда показывает через то, что печатает лента.
 
 ## Приватность
 
