@@ -473,6 +473,7 @@ struct NotchDropDelegate: DropDelegate {
 
     func dropEntered(info: DropInfo) {
         model.dropCanConvert = Self.dragHasImages()
+        log("[drop] entered at \(Int(info.location.x)),\(Int(info.location.y)), images \(model.dropCanConvert)")
         model.dropTargeted = true
         _ = dropUpdated(info: info)
     }
@@ -502,10 +503,14 @@ struct NotchDropDelegate: DropDelegate {
         return DropProposal(operation: .copy)
     }
 
-    func dropExited(info: DropInfo) { model.dropTargeted = false }
+    func dropExited(info: DropInfo) {
+        log("[drop] exited at \(Int(info.location.x)),\(Int(info.location.y))")
+        model.dropTargeted = false
+    }
 
     func performDrop(info: DropInfo) -> Bool {
         let side = model.dropSide
+        log("[drop] performed at \(Int(info.location.x)),\(Int(info.location.y)) → \(side)")
         model.dropTargeted = false
         model.onDropFiles(info.itemProviders(for: [.fileURL]), side)
         return true

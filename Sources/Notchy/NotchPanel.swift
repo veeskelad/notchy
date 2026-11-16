@@ -135,6 +135,10 @@ final class NotchController {
     static let bannerSeconds: Double = 6
     /// Room for the largest card; the window keeps this size for good.
     static let islandRoom = CGSize(width: 640, height: 540)
+    /// The window reaches this far above the top of the screen and the content starts that much lower.
+    /// Without it the pointer pushed against the top edge sits on the window's own border, and a file
+    /// dragged up there flickers out of the drop zones (the drag "exits" at y = 0 and comes back at y = 1).
+    static let overhang: CGFloat = 1
 
     private let panel: NotchPanel
     private let hosting: FirstMouseHostingView<NotchRootView>
@@ -496,8 +500,9 @@ final class NotchController {
             model.notchHeight = NSStatusBar.system.thickness
         }
         let size = NotchController.islandRoom
-        let height = model.notchHeight + size.height
-        var frame = NSRect(x: (screen.frame.midX - size.width / 2).rounded(), y: screen.frame.maxY - height,
+        let height = model.notchHeight + size.height + NotchController.overhang
+        var frame = NSRect(x: (screen.frame.midX - size.width / 2).rounded(),
+                           y: screen.frame.maxY + NotchController.overhang - height,
                            width: size.width, height: height)
         // Test instances taking screenshots: render off screen, out of the user's way.
         if Visibility.forceOffscreen && ProcessInfo.processInfo.environment["NOTCHY_HIDDEN_WINDOW"] == "1" {
@@ -526,6 +531,7 @@ struct NotchRootView: View {
             NotchRimView(model: model)
                 .onHover { model.onHover(.notch, $0) }
         }
+        .padding(.top, NotchController.overhang)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onDrop(of: [UTType.fileURL], delegate: NotchDropDelegate(model: model, midX: NotchController.islandRoom.width / 2))
         .environment(\.colorScheme, .dark)
