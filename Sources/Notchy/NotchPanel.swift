@@ -74,6 +74,8 @@ final class NotchModel: ObservableObject {
     let notes = NotesStore()
     @Published var dropTargeted = false
     @Published var dropSide: DropSide = .shelf
+    /// The drag carries at least one image: the converter half is shown next to the shelf.
+    @Published var dropCanConvert = true
     /// A timer runs (Tools.swift): the resting notch shows its countdown.
     @Published var timerRunning = false
     let timer = TimerStore()
@@ -629,7 +631,7 @@ struct IslandView: View {
                         .transition(islandContent)
                 }
             case .drop:
-                DropZones(side: model.dropSide, notchWidth: notch, notchHeight: model.notchHeight)
+                DropZones(side: model.dropSide, canConvert: model.dropCanConvert, notchWidth: notch, notchHeight: model.notchHeight)
                     .transition(islandContent)
             case .timer:
                 TimerCompact(timer: model.timer, notchWidth: notch, notchHeight: model.notchHeight)

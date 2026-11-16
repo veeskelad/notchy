@@ -424,8 +424,10 @@ struct FilePreview: View {
 enum DropSide { case shelf, convert }
 
 /// While a drag is over the notch: the left half keeps files on the shelf, the right half converts images.
+/// A drag with no images in it (a spreadsheet, a PDF) gets the shelf alone, across the whole width.
 struct DropZones: View {
     let side: DropSide
+    let canConvert: Bool
     let notchWidth: CGFloat
     let notchHeight: CGFloat
 
@@ -435,8 +437,10 @@ struct DropZones: View {
             HStack(spacing: 8) {
                 zone(.shelf, symbol: "tray.and.arrow.down", title: L.t("To the shelf", "На полку"),
                      hint: L.t("keep it, drag out later", "полежит, перетащите потом"))
-                zone(.convert, symbol: "photo.on.rectangle.angled", title: L.t("Convert", "Конвертировать"),
-                     hint: "JPG · PNG · HEIC · TIFF")
+                if canConvert {
+                    zone(.convert, symbol: "photo.on.rectangle.angled", title: L.t("Convert", "Конвертировать"),
+                         hint: "JPG · PNG · HEIC · TIFF")
+                }
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 14)
@@ -468,8 +472,18 @@ struct NotchDropDelegate: DropDelegate {
     func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL]) }
 
     func dropEntered(info: DropInfo) {
+        model.dropCanConvert = Self.dragHasImages()
         model.dropTargeted = true
         _ = dropUpdated(info: info)
+    }
+
+    /// The files being dragged, read off the drag pasteboard (the item providers only open on drop).
+    /// Unreadable → true, so the converter half stays as it was.
+    static func dragHasImages() -> Bool {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        guard let urls = NSPasteboard(name: .drag).readObjects(forClasses: [NSURL.self], options: options) as? [URL],
+              !urls.isEmpty else { return true }
+        return urls.contains { UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) ?? false }
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
@@ -479,6 +493,8 @@ struct NotchDropDelegate: DropDelegate {
             side = .shelf
         } else if model.expanded == .panel && model.tab == .convert {
             side = .convert
+        } else if !model.dropCanConvert {
+            side = .shelf
         } else {
             side = info.location.x < midX ? .shelf : .convert
         }
